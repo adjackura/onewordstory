@@ -27,6 +27,7 @@ type guild struct {
 	timer       *time.Timer
 	toDelete    []string
 	toDeleteEnd []string
+	waitTime    time.Duration
 }
 
 func main() {
@@ -200,12 +201,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	g, ok := guilds[m.GuildID]
 	if !ok {
 		log.Printf("new guild %q", m.GuildID)
-		g = &guild{id: m.GuildID, nextWord: map[string]struct{}{}}
+		g = &guild{waitTime: waitTime, id: m.GuildID, nextWord: map[string]struct{}{}}
 		guilds[m.GuildID] = g
 	}
 	log.Printf("%+v", g)
 
 	if m.Message.Content == "!list" {
+		g.toDelete = append(g.toDelete, m.ID)
 		msgs := g.count(s, m.ChannelID, g.nextWord)
 		var msg string
 		for text, cnt := range msgs {
@@ -233,17 +235,24 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if strings.HasPrefix(m.Message.Content, "!waittime") {
+		g.toDelete = append(g.toDelete, m.ID)
 		d, err := time.ParseDuration(strings.TrimPrefix(m.Message.Content, "!waittime "))
 		if err != nil {
 			log.Print(err)
 		} else {
-			waitTime = d
+			g.waitTime = d
+			m, err := s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Wait time set to %s", d))
+			if err != nil {
+				log.Print(err)
+				return
+			}
+			g.toDelete = append(g.toDelete, m.ID)
 		}
 		return
 	}
 
 	if len(g.nextWord) == 0 {
-		g.timer = time.AfterFunc(waitTime, func() { g.choose(s, m.ChannelID) })
+		g.timer = time.AfterFunc(g.waitTime, func() { g.choose(s, m.ChannelID) })
 	}
 	g.nextWord[m.ID] = struct{}{}
 }
