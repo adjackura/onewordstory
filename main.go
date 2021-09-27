@@ -232,6 +232,16 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	if strings.HasPrefix(m.Message.Content, "!waittime") {
+		d, err := time.ParseDuration(strings.TrimPrefix(m.Message.Content, "!waittime "))
+		if err != nil {
+			log.Print(err)
+		} else {
+			waitTime = d
+		}
+		return
+	}
+
 	if len(g.nextWord) == 0 {
 		g.timer = time.AfterFunc(waitTime, func() { g.choose(s, m.ChannelID) })
 	}
