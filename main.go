@@ -73,7 +73,11 @@ func (g *guild) count(s *discordgo.Session, channelID string, messages map[strin
 	for {
 		for _, m := range cMsgs {
 			if _, ok := newMessages[m.ID]; ok {
-				msgs[m.Content] = msgs[m.Content] + len(m.Reactions)
+				var c int
+				for _, r := range m.Reactions {
+					c += r.Count
+				}
+				msgs[m.Content] = msgs[m.Content] + c
 				delete(newMessages, m.ID)
 			}
 		}
