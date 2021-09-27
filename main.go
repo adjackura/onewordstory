@@ -77,7 +77,8 @@ func (g *guild) count(s *discordgo.Session, channelID string, messages map[strin
 				for _, r := range m.Reactions {
 					c += r.Count
 				}
-				msgs[m.Content] = msgs[m.Content] + c
+				msg := strings.ReplaceAll(strings.TrimSpace(m.Content), "*", "")
+				msgs[msg] = msgs[msg] + c
 				delete(newMessages, m.ID)
 			}
 		}
@@ -103,7 +104,7 @@ func (g *guild) end(s *discordgo.Session, channelID string) {
 	}
 	g.toDeleteEnd = nil
 
-	s.ChannelMessageSend(channelID, fmt.Sprintf("%q", g.story))
+	s.ChannelMessageSend(channelID, fmt.Sprintf("**%s**", g.story))
 	g.story = ""
 	m, err := s.ChannelMessageSend(channelID, "First word?")
 	if err != nil {
@@ -132,7 +133,7 @@ func (g *guild) choose(s *discordgo.Session, channelID string) {
 	var high int
 	for k, v := range msgs {
 		if v >= high {
-			word = strings.TrimSpace(k)
+			word = k
 			high = v
 		}
 	}
@@ -165,7 +166,7 @@ func (g *guild) choose(s *discordgo.Session, channelID string) {
 		return
 	}
 
-	m, err := s.ChannelMessageSend(channelID, fmt.Sprintf("Chosen word is %q with %d votes. Story so far:\n%s", word, high, g.story))
+	m, err := s.ChannelMessageSend(channelID, fmt.Sprintf("Chosen word is %q with %d votes. Story so far:\n**%s**", word, high, g.story))
 	if err != nil {
 		log.Print(err)
 		return
@@ -210,7 +211,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		for text, cnt := range msgs {
 			msg = fmt.Sprintf("%s%s:%d\n", msg, text, cnt)
 		}
-		s.ChannelMessageSend(m.ChannelID, msg)
+		m, err := s.ChannelMessageSend(m.ChannelID, msg)
+		if err != nil {
+			log.Print(err)
+			return
+		}
+		g.toDelete = append(g.toDelete, m.ID)
 		return
 	}
 
